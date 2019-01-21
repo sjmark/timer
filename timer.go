@@ -83,18 +83,22 @@ func (c *nTimer) run() {
 			}
 
 			if time.Now().After(cro.next) {
-
-				go c.runWorking(cro.fn)
-
-				if cro.cType == clockOnce {
-					c.timers = append(c.timers[:0], c.timers[1:]...)
-				}
-
-				if cro.cType == clockForever {
-					c.timers[0].next = time.Now().Add(cro.sec)
-					sort.Sort(clockTime(c.timers))
-				}
 				n--
+				if cro.running {
+					go c.runWorking(cro.fn)
+
+					if cro.cType == clockOnce {
+						c.timers = append(c.timers[:0], c.timers[1:]...)
+					}
+
+					if cro.cType == clockForever {
+						c.timers[0].next = time.Now().Add(cro.sec)
+						sort.Sort(clockTime(c.timers))
+					}
+				} else {
+					c.timers = append(c.timers[:0], c.timers[1:]...)
+					continue
+				}
 			}
 		}
 	}
