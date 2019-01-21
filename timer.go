@@ -2,7 +2,6 @@ package timer
 
 import (
 	"time"
-	"webserver/utils"
 	"sort"
 )
 
@@ -56,7 +55,12 @@ func (c *nTimer) Stop(ot string) {
 }
 
 func (c *nTimer) runWorking(j func()) {
-	defer utils.PrintPanicStack(j)
+	defer func() {
+		if err := recover(); err != nil {
+			panic(err)
+		}
+	}()
+
 	j()
 }
 
