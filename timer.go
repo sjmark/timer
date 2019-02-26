@@ -47,6 +47,11 @@ func (c *nTimer) Start() { c.run() }
 
 func (c *nTimer) Stop(ot string) {
 	for index, v := range c.timers {
+
+		if index >= len(c.timers) {
+			break
+		}
+
 		if v.oType == ot {
 			c.timers[index].running = false
 			break
