@@ -1,8 +1,9 @@
 package timer
 
 import (
-	"time"
 	"sort"
+	"time"
+	"gameServer1V1/tools/tool/comm"
 )
 
 type nTimer struct {
@@ -14,7 +15,7 @@ type nTimer struct {
 }
 
 type timer struct {
-	cType   clockType // 定时器类型 1 为一次性 2 为永久
+	cType   clockType
 	running bool
 	next    time.Time
 	oType   string
@@ -46,6 +47,7 @@ func (c *nTimer) AddForever(ot string, fn func(), sec time.Duration) { c.add(ot,
 func (c *nTimer) Start() { c.run() }
 
 func (c *nTimer) Stop(ot string) {
+
 	for index, v := range c.timers {
 
 		if index >= len(c.timers) {
@@ -54,23 +56,18 @@ func (c *nTimer) Stop(ot string) {
 
 		if v.oType == ot {
 			c.timers[index].running = false
-			break
+			continue
 		}
 	}
 }
 
 func (c *nTimer) runWorking(j func()) {
-	defer func() {
-		if err := recover(); err != nil {
-			panic(err)
-		}
-	}()
-
+	defer comm.PrintPanicStack(j)
 	j()
 }
 
 func (c *nTimer) run() {
-	t := time.NewTicker(time.Second)
+	t := time.NewTicker(time.Millisecond * 100)
 	n := 0
 
 	for {
@@ -83,30 +80,33 @@ func (c *nTimer) run() {
 			}
 			return nil
 		}():
-			cro := c.timers[0]
+			if len(c.timers) > 0 {
+				cro := c.timers[0]
 
-			if !cro.running {
-				c.timers = append(c.timers[:0], c.timers[1:]...)
-				n--
-				continue
-			}
-
-			if time.Now().After(cro.next) {
-				n--
-				if cro.running {
-					go c.runWorking(cro.fn)
-
-					if cro.cType == clockOnce {
-						c.timers = append(c.timers[:0], c.timers[1:]...)
-					}
-
-					if cro.cType == clockForever {
-						c.timers[0].next = time.Now().Add(cro.sec)
-						sort.Sort(clockTime(c.timers))
-					}
-				} else {
+				if !cro.running {
 					c.timers = append(c.timers[:0], c.timers[1:]...)
+					n--
 					continue
+				}
+
+				if time.Now().After(cro.next) {
+
+					if cro.running {
+						go c.runWorking(cro.fn)
+
+						if cro.cType == clockOnce {
+							c.timers = append(c.timers[:0], c.timers[1:]...)
+							n--
+						}
+
+						if cro.cType == clockForever {
+							c.timers[0].next = time.Now().Add(cro.sec)
+							sort.Sort(clockTime(c.timers))
+						}
+					} else {
+						c.timers = append(c.timers[:0], c.timers[1:]...)
+						continue
+					}
 				}
 			}
 		}
@@ -115,28 +115,28 @@ func (c *nTimer) run() {
 
 func (c *nTimer) add(ot string, cType clockType, fn func(), sec time.Duration) {
 
-	ct := &timer{
-		oType:   ot,
-		cType:   cType,
-		fn:      fn,
-		sec:     sec,
-		next:    time.Now().Add(sec),
-		running: true,
-	}
+	c.timers = append(
+		c.timers,
+		&timer{
+			oType:   ot,
+			cType:   cType,
+			fn:      fn,
+			sec:     sec,
+			next:    time.Now().Add(sec),
+			running: true,
+		},
+	)
 
-	c.timers = append(c.timers, ct)
+	sort.Sort(clockTime(c.timers))
 
 	if !c.timers[0].running {
 		c.timers = append(c.timers[:0], c.timers[1:]...)
 	}
 
-	sort.Sort(clockTime(c.timers))
 	c.begin <- struct{}{}
 }
 
-func (c *nTimer) now() time.Time {
-	return time.Now().In(c.location)
-}
+func (c *nTimer) now() time.Time { return time.Now().In(c.location) }
 
 type clockTime []*timer
 
