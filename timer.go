@@ -1,9 +1,12 @@
 package timer
 
 import (
+	"fmt"
 	"sort"
 	"time"
-	"gameServer1V1/tools/tool/comm"
+	"runtime"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type nTimer struct {
@@ -48,21 +51,39 @@ func (c *nTimer) Start() { c.run() }
 
 func (c *nTimer) Stop(ot string) {
 
-	for index, v := range c.timers {
+	var size = len(c.timers)
 
-		if index >= len(c.timers) {
+	for i := 0; i < size; i++ {
+		if i > size {
 			break
 		}
 
-		if v.oType == ot {
-			c.timers[index].running = false
+		if c.timers[i].oType == ot {
+			c.timers[i].running = false
 			continue
 		}
 	}
 }
 
+//PrintPanicStack 产生panic时的调用栈打印
+func printPanicStack(extras ...interface{}) {
+	if x := recover(); x != nil {
+		i := 0
+		funcName, file, line, ok := runtime.Caller(i)
+		for ok {
+			fmt.Println("frame %v:[func:%v,file:%v,line:%v]\n", i, runtime.FuncForPC(funcName).Name(), file, line)
+			i++
+			funcName, file, line, ok = runtime.Caller(i)
+		}
+
+		for k := range extras {
+			fmt.Println("EXRAS:%d DATA:%s\n", k, spew.Sdump(extras[k]))
+		}
+	}
+}
+
 func (c *nTimer) runWorking(j func()) {
-	defer comm.PrintPanicStack(j)
+	defer printPanicStack(j)
 	j()
 }
 
